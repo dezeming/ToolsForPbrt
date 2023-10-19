@@ -42,7 +42,7 @@ namespace exrLoad {
 	int loadRGB(std::string filename, gdt::vec2i& resolution, std::vector<float4*>& dataPointers);
 
 
-	int AlbedoVisualize(ExrDataStructure& datastruct, uint32_t h_pixels[]);
+	int AlbedoVisualize(ExrDataStructure& datastruct, uint32_t h_pixels[], bool usingNormalization = false);
 
 	int NormalVisualize(ExrDataStructure& datastruct, uint32_t h_pixels[]);
 

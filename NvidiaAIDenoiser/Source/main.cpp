@@ -72,7 +72,7 @@ namespace PbrtOptixDenoiser {
                 outputDir = "D:/Develop/PBRT_Dez/Build/Save/Scene3-Fast/temporal-N5-Denoised/";
             }
 
-            inputFilename = "./TestFile/test.exr";
+            inputFilename = "./TestFile/frames00016.exr";
             outputDir = "./TestFile/";
 
             // .png files
@@ -123,7 +123,7 @@ namespace PbrtOptixDenoiser {
             denoiser.downloadRender2Pixels(denoisedOutput);
             stbi_write_png(denoised2File.c_str(), ImageSize.x, ImageSize.y, 4, denoisedOutput, ImageSize.x * sizeof(uint32_t));
 
-            exrLoad::AlbedoVisualize(datastruct, denoisedOutput);
+            exrLoad::AlbedoVisualize(datastruct, denoisedOutput, false);
             stbi_write_png(albedoFile.c_str(), ImageSize.x, ImageSize.y, 4, denoisedOutput, ImageSize.x * sizeof(uint32_t));
             exrLoad::NormalVisualize(datastruct, denoisedOutput);
             stbi_write_png(normalFile.c_str(), ImageSize.x, ImageSize.y, 4, denoisedOutput, ImageSize.x * sizeof(uint32_t));

@@ -442,7 +442,7 @@ int loadRGB(std::string filename, gdt::vec2i& resolution, std::vector<float4*>& 
     return 0;
 }
 
-int AlbedoVisualize(ExrDataStructure& datastruct, uint32_t h_pixels[]) {
+int AlbedoVisualize(ExrDataStructure& datastruct, uint32_t h_pixels[], bool usingNormalization) {
 
     if (!datastruct.channeltype.hasAlbedo || datastruct.channeltype.AlbedoChannels < 3) {
         std::cout << "No Albedo with three channel data" << std::endl;
@@ -471,49 +471,83 @@ int AlbedoVisualize(ExrDataStructure& datastruct, uint32_t h_pixels[]) {
         return -1;
     }
 
-    float4 * datp = datastruct.dataPointers[typeIndex_R];
-    float max_x = -99999.0f, max_y = -99999.0f, max_z = -99999.0f;
-    float min_x = 99999.0f, min_y = 99999.0f, min_z = 99999.0f;
-    // Calculate the maximum value for each dimension
-    for (int i = 0; i < datastruct.ImageSize.x; i++) {
-        for (int j = 0; j < datastruct.ImageSize.y; j++) {
-            int offset = i + j * datastruct.ImageSize.x;
-            max_x = max_x > datp[offset].x ? max_x : datp[offset].x;
-            min_x = min_x < datp[offset].x ? min_x : datp[offset].x;
-            max_y = max_y > datp[offset].y ? max_y : datp[offset].y;
-            min_y = min_y < datp[offset].y ? min_y : datp[offset].y;
-            max_z = max_z > datp[offset].z ? max_z : datp[offset].z;
-            min_z = min_z < datp[offset].z ? min_z : datp[offset].z;
+    float4* datp = datastruct.dataPointers[typeIndex_R];
+    // Method: Normalize the values to the range of [0,1]
+    if (usingNormalization) {
+        float max_x = -99999.0f, max_y = -99999.0f, max_z = -99999.0f;
+        float min_x = 99999.0f, min_y = 99999.0f, min_z = 99999.0f;
+        // Calculate the maximum value for each dimension
+        for (int i = 0; i < datastruct.ImageSize.x; i++) {
+            for (int j = 0; j < datastruct.ImageSize.y; j++) {
+                int offset = i + j * datastruct.ImageSize.x;
+                max_x = max_x > datp[offset].x ? max_x : datp[offset].x;
+                min_x = min_x < datp[offset].x ? min_x : datp[offset].x;
+                max_y = max_y > datp[offset].y ? max_y : datp[offset].y;
+                min_y = min_y < datp[offset].y ? min_y : datp[offset].y;
+                max_z = max_z > datp[offset].z ? max_z : datp[offset].z;
+                min_z = min_z < datp[offset].z ? min_z : datp[offset].z;
+            }
+        }
+
+        std::cout << "In AlbedoVisualize: x[" << min_x << "," << max_y << "]"
+            << " y[" << min_y << "," << max_y << "]"
+            << " z[" << min_z << "," << max_z << "]" << std::endl;
+
+        // Numerical normalization
+        float x_intervel = max_x - min_x;
+        x_intervel = x_intervel > 0.0f ? x_intervel : 1.f;
+        float x_intervel_inv = 1.0f / x_intervel;
+        float y_intervel = max_y - min_y;
+        y_intervel = y_intervel > 0.0f ? y_intervel : 1.f;
+        float y_intervel_inv = 1.0f / y_intervel;
+        float z_intervel = max_z - min_z;
+        z_intervel = z_intervel > 0.0f ? z_intervel : 1.f;
+        float z_intervel_inv = 1.0f / z_intervel;
+
+        for (int i = 0; i < datastruct.ImageSize.x; i++) {
+            for (int j = 0; j < datastruct.ImageSize.y; j++) {
+
+                int offset = i + j * datastruct.ImageSize.x;
+                uint32_t rgba = 0;
+                rgba |= (uint32_t)((datp[offset].x - min_x) * x_intervel_inv * 255.9f) << 0;
+                rgba |= (uint32_t)((datp[offset].y - min_y) * y_intervel_inv * 255.9f) << 8;
+                rgba |= (uint32_t)((datp[offset].z - min_z) * z_intervel_inv * 255.9f) << 16;
+                rgba |= (uint32_t)255 << 24;
+
+                h_pixels[offset] = rgba;
+            }
+        }
+    }
+    // Method: Clamp the values to the range of [0,1]
+    else {
+        for (int i = 0; i < datastruct.ImageSize.x; i++) {
+            for (int j = 0; j < datastruct.ImageSize.y; j++) {
+
+                int offset = i + j * datastruct.ImageSize.x;
+                uint32_t rgba = 0;
+                float x_val, y_val, z_val; 
+                if (datp[offset].x > 1.0f) x_val = 1.0f;
+                else if (datp[offset].x < 0.0f) x_val = 0.0f;
+                else x_val = datp[offset].x;
+                if (datp[offset].y > 1.0f) y_val = 1.0f;
+                else if (datp[offset].y < 0.0f) y_val = 0.0f;
+                else y_val = datp[offset].y;
+                if (datp[offset].z > 1.0f) z_val = 1.0f;
+                else if (datp[offset].z < 0.0f) z_val = 0.0f;
+                else z_val = datp[offset].z;
+                        
+                rgba |= (uint32_t)(x_val * 255.9f) << 0;
+                rgba |= (uint32_t)(y_val * 255.9f) << 8;
+                rgba |= (uint32_t)(z_val * 255.9f) << 16;
+                rgba |= (uint32_t)255 << 24;
+
+                h_pixels[offset] = rgba;
+            }
         }
     }
 
-    std::cout << "In AlbedoVisualize: x[" << min_x << "," << max_y << "]"
-        << " y[" << min_y << "," << max_y << "]"
-        << " z[" << min_z << "," << max_z << "]" << std::endl;
+    return 0;
 
-    // Numerical normalization
-    float x_intervel = max_x - min_x;
-    x_intervel = x_intervel > 0.0f ? x_intervel : 1.f;
-    float x_intervel_inv = 1.0f / x_intervel;
-    float y_intervel = max_y - min_y;
-    y_intervel = y_intervel > 0.0f ? y_intervel : 1.f;
-    float y_intervel_inv = 1.0f / y_intervel;
-    float z_intervel = max_z - min_z;
-    z_intervel = z_intervel > 0.0f ? z_intervel : 1.f;
-    float z_intervel_inv = 1.0f / z_intervel;
-    for (int i = 0; i < datastruct.ImageSize.x; i++) {
-        for (int j = 0; j < datastruct.ImageSize.y; j++) {
-
-            int offset = i + j * datastruct.ImageSize.x;
-            uint32_t rgba = 0;
-            rgba |= (uint32_t)((datp[offset].x - min_x) * x_intervel_inv * 255.9f) << 0;
-            rgba |= (uint32_t)((datp[offset].y - min_y) * y_intervel_inv * 255.9f) << 8;
-            rgba |= (uint32_t)((datp[offset].z - min_z) * z_intervel_inv * 255.9f) << 16;
-            rgba |= (uint32_t)255 << 24;
-
-            h_pixels[offset] = rgba;
-        }
-    }
 }
 
 int NormalVisualize(ExrDataStructure& datastruct, uint32_t h_pixels[]) {
